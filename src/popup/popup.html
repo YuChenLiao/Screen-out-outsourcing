@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LCS 筛选巡航</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="hd">
+      <div class="brand">
+        <span class="dot"></span>
+        <span class="ttl">筛选巡航</span>
+        <span class="ver">v1.0</span>
+      </div>
+      <button id="btnRescan" class="icon-btn" title="重新扫描当前页">↻</button>
+    </header>
+
+    <section class="status" id="status">
+      <div class="status-line">
+        <span class="k">页面</span><span class="v" id="pageState">检测中…</span>
+      </div>
+      <div class="status-line">
+        <span class="k">已捕获筛选</span><span class="v mono" id="filterCount">0 项</span>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block-hd">
+        <h3>当前筛选条件</h3>
+        <button id="btnSave" class="btn primary">保存为默认</button>
+      </div>
+      <div class="chips" id="chips"><div class="empty">等待页面发起一次搜索请求…</div></div>
+    </section>
+
+    <section class="block">
+      <div class="block-hd">
+        <h3>已保存条件</h3>
+        <button id="btnApply" class="btn">立即应用</button>
+      </div>
+      <div class="saved" id="saved"><div class="empty">尚未保存</div></div>
+    </section>
+
+    <section class="block">
+      <div class="block-hd"><h3>派遣 / 外包标记</h3></div>
+      <label class="sw">
+        <input type="checkbox" id="cfgHighlight" />
+        <span class="sw-ui"></span>
+        <span class="sw-lb">标红派遣/外包岗位</span>
+      </label>
+      <label class="sw">
+        <input type="checkbox" id="cfgLoose" />
+        <span class="sw-ui"></span>
+        <span class="sw-lb">宽松匹配<em>额外扫描福利与技能标签，可能增多误报</em></span>
+      </label>
+      <label class="sw">
+        <input type="checkbox" id="cfgAuto" />
+        <span class="sw-ui"></span>
+        <span class="sw-lb">进入页面自动应用筛选</span>
+      </label>
+      <div class="stat-grid">
+        <div class="stat"><b id="stTotal">0</b><span>已入库岗位</span></div>
+        <div class="stat danger"><b id="stOut">0</b><span>派遣/外包</span></div>
+        <div class="stat"><b id="stFilter">0</b><span>筛选条件</span></div>
+      </div>
+      <div class="status-line sub">
+        <span class="k">列表接口风控</span><span class="v mono" id="apiState">未知</span>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block-hd">
+        <h3>接口日志</h3>
+        <button id="btnLog" class="btn ghost">展开</button>
+      </div>
+      <div class="log mono" id="log" hidden></div>
+    </section>
+
+    <footer class="ft">
+      <span id="toast"></span>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

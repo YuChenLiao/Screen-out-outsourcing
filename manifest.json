@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "BOSS 直聘 · 筛选巡航助手",
+  "version": "1.0.0",
+  "description": "同步并保存 BOSS 直聘职位搜索的筛选条件，自动回填查询，并基于岗位详情接口高亮双休岗位。",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.zhipin.com/*", "https://*.zhipin.com/*"],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "BOSS 直聘筛选巡航助手",
+    "default_popup": "src/popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.zhipin.com/web/geek/*", "https://www.zhipin.com/*"],
+      "js": ["src/shared/judge.js", "src/content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/injected.js"],
+      "matches": ["https://www.zhipin.com/*"]
+    }
+  ]
+}
