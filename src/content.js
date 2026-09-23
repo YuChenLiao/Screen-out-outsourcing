@@ -31,6 +31,8 @@
     filters: {},
     requested: new Set(),
     stats: { total: 0, outsourcing: 0 },
+    savedFilters: null, // 已保存的默认条件(供面板展示与应用)
+    notice: '', // 面板上的临时提示
   };
 
   /* ----------------------------------------------------------- 注入主世界 */
@@ -216,6 +218,20 @@
       background:#1e293b; color:#7dd3fc; font-size:11px; }
     .lcs-detail { margin:6px 0 2px; padding:6px 8px; background:#1e293b66; border-radius:6px; }
     .lcs-empty { color:#94a3b8; text-align:center; padding:14px 0; }
+    /* 面板内的应用按钮:面板由扩展自绘,不继承页面样式,需完整定义 */
+    .lcs-apply-btn {
+      display:block; width:100%; margin-top:8px; padding:6px 0;
+      border:1px solid #3ddc9755; border-radius:7px; cursor:pointer;
+      background:#3ddc971a; color:#4ade80;
+      font:600 12px/1.4 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+      transition:background .16s, border-color .16s;
+    }
+    .lcs-apply-btn:hover { background:#3ddc9730; border-color:#3ddc97aa; }
+    .lcs-apply-btn:active { transform:translateY(1px); }
+    .lcs-notice {
+      margin-top:8px; padding:5px 8px; border-radius:6px;
+      background:#3ddc971a; color:#4ade80; font-size:11px; text-align:center;
+    }
     `;
   }
 
@@ -480,16 +496,78 @@
     const c = countOutsourcing();
     const shown = cardCount === undefined ? c.jobs : cardCount;
 
+    // 已保存的默认条件:直接展示 + 一键应用,省去打开 popup 的来回
+    const savedEntries = Object.entries((state.savedFilters && state.savedFilters.params) || {}).filter(
+      ([, v]) => v !== '' && v !== undefined && v !== null,
+    );
+    const savedLines = savedEntries.length
+      ? savedEntries.map(([k, v]) => `<span class="lcs-tag">${escapeHtml(k)}=${escapeHtml(String(v))}</span>`).join('')
+      : '<div class="lcs-empty">尚未保存条件</div>';
+
     panel.querySelector('.lcs-body').innerHTML = `
       <div class="lcs-detail">
         <div class="lcs-row"><span>已捕获筛选</span><span>${Object.keys(f).length} 项</span></div>
         <div>${paramLines}</div>
       </div>
+      <div class="lcs-detail">
+        <div class="lcs-row"><span>已保存条件</span><span>${savedEntries.length} 项</span></div>
+        <div>${savedLines}</div>
+        ${
+          savedEntries.length
+            ? '<button class="lcs-apply-btn" data-lcs-action="apply-saved" type="button">应用并立即查询</button>'
+            : ''
+        }
+      </div>
       <div class="lcs-row"><span>本页岗位</span><span>${shown}</span></div>
       <div class="lcs-row"><span>派遣/外包</span><span style="color:#e5484d;font-weight:600">${c.outsourcing}</span></div>
       <div class="lcs-row"><span>已入库岗位</span><span>${c.jobs}</span></div>
       <div class="lcs-row"><span>标红开关</span><span>${config.highlight ? '开' : '关'}</span></div>
+      ${state.notice ? `<div class="lcs-notice">${escapeHtml(state.notice)}</div>` : ''}
     `;
+  }
+
+  // 面板上的交互统一用事件委托。
+  // 原因:面板内容每次重绘都会重建 DOM,若在重建时逐个 addEventListener,
+  // 旧引用会随旧节点一起丢弃,新节点上没有监听器 —— 点了没反应。
+  // 把监听挂在 panel 容器上(它只创建一次),内部节点怎么换都能接住。
+  document.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest && e.target.closest('[data-lcs-action="apply-saved"]');
+    if (!btn) return;
+    e.preventDefault();
+    applySavedFromPanel();
+  });
+
+  function applySavedFromPanel() {
+    const params = (state.savedFilters && state.savedFilters.params) || {};
+    const entries = Object.entries(params).filter(([, v]) => v !== '' && v != null);
+    if (!entries.length) {
+      state.notice = '没有可应用的条件';
+      renderPanel();
+      return;
+    }
+
+    // 清掉会话去重标记,保证这次回填一定执行
+    try {
+      sessionStorage.removeItem('lcs:applied');
+    } catch {}
+
+    applyFiltersToUrl(params);
+
+    // 立刻用保存的条件查一次,让数据当场刷新;URL 改写同步让 SPA 自身重算
+    requestListFetch(params, 1);
+
+    // 面板上的条件显示同步更新
+    state.filters = { ...state.filters, params, updatedAt: Date.now(), source: 'saved' };
+    try {
+      localStorage.setItem('lcs:filters', JSON.stringify(state.filters));
+    } catch {}
+
+    state.notice = '已应用 ' + entries.length + ' 项条件,正在查询…';
+    renderPanel();
+    setTimeout(() => {
+      state.notice = '';
+      scheduleScan();
+    }, 2500);
   }
 
   function escapeHtml(s) {
@@ -664,10 +742,31 @@
     });
   }
 
+  /* --------------------------------------------------- 已保存条件的读取 */
+
+  // 已保存的默认条件是面板要展示的对象,缓存起来避免每次重绘都读 storage。
+  // 同时监听 storage 变化,这样在 popup 里保存后面板会立刻同步。
+  async function refreshSavedFilters() {
+    try {
+      const { savedFilters } = await getStored();
+      const next = savedFilters && savedFilters.params ? savedFilters : null;
+      const changed = JSON.stringify(next) !== JSON.stringify(state.savedFilters);
+      state.savedFilters = next;
+      if (changed) scheduleRenderPanel(0);
+    } catch {
+      state.savedFilters = null;
+    }
+  }
+
+  try {
+    chrome.storage?.onChanged?.addListener((changes, area) => {
+      if (area === 'local' && changes.savedFilters) refreshSavedFilters();
+    });
+  } catch {}
+
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     (async () => {
-      switch (msg.type) {
-        case 'LCS_GET_STATUS': {
+      switch (msg.type) {        case 'LCS_GET_STATUS': {
           // 筛选状态从 localStorage 读:主世界写入(URL 变化时同步),
           // 隔离世界读不到主世界的 window,localStorage 是两者唯一共享的通道。
           syncSnapshot();
@@ -810,6 +909,7 @@
     syncSnapshot();
     sanitizeStoredFilters();
     syncFiltersFromUrl();
+    await refreshSavedFilters(); // 面板需要展示已保存条件
     await applySavedFilters();
     scheduleScan();
   })();

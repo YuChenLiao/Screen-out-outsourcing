@@ -284,6 +284,14 @@ popup 与 content script 之间：
 | `LCS_RESCAN` | 清空已归集数据并重新扫描 |
 | `LCS_GET_API_LOG` | 取接口日志 |
 
+### 面板内的交互：必须用事件委托
+
+面板内容每次重绘都是整体重建 `innerHTML`。若在重建时逐个 `addEventListener`，旧节点上的监听器会随节点一起丢弃，新节点上没有监听器 —— 表现为**点击没反应**，且不报错。
+
+因此面板内交互统一用**事件委托**：监听挂在 `document` 上，通过 `closest('[data-lcs-action="..."]')` 匹配目标。
+
+已保存条件由 `refreshSavedFilters()` 缓存到 `state.savedFilters`，并通过 `chrome.storage.onChanged` 监听 —— 在 popup 里保存后，面板会立即同步，不需要刷新页面。
+
 ---
 
 ## 四、派遣/外包判定

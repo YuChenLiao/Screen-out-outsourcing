@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "BOSS 直聘 · 筛选巡航助手",
-  "version": "1.0.0",
-  "description": "同步并保存 BOSS 直聘职位搜索的筛选条件，自动回填查询，并基于岗位详情接口高亮双休岗位。",
+  "version": "1.1.0",
+  "description": "同步并保存 BOSS 直聘职位搜索的筛选条件，自动回填查询，并标红标明派遣/外包的岗位。",
   "minimum_chrome_version": "116",
   "permissions": ["storage"],
   "host_permissions": ["https://www.zhipin.com/*", "https://*.zhipin.com/*"],
